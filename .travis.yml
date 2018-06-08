@@ -10,7 +10,7 @@ addons:
   chrome: stable
 
 branches:
-  only:
+  except:
   - master
   - develop
 
@@ -42,6 +42,7 @@ matrix:
 notifications:
   email:
     recipients:
+    
     on_success: change
     on_failure: change
   irc:
