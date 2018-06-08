@@ -10,7 +10,7 @@ addons:
   chrome: stable
 
 branches:
-  only:
+  except:
   - master
   - develop
 
