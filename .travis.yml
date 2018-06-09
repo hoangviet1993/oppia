@@ -10,8 +10,8 @@ addons:
   chrome: stable
 
 branches:
-  except:
-  - master
+  only:
+  - travis_build
   - develop
 
 env:
