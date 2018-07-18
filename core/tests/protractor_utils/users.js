@@ -39,9 +39,15 @@ var login = function(email, isSuperAdmin) {
 };
 
 var logout = function() {
-  var driver = browser.driver;
-  driver.get(general.SERVER_URL_PREFIX + general.LOGIN_URL_SUFFIX);
-  driver.findElement(protractor.By.id('submit-logout')).click();
+  browser.get(general.SERVER_URL_PREFIX);
+  waitFor.pageToFullyLoad();
+  var profileDropdown = element(by.css('.protractor-test-profile-dropdown'));
+  profileDropdown.click();
+  var logoutButton = element(by.css('[ng-href="/logout?return_url=%2F"]'));
+  waitFor.elementToBeClickable(logoutButton);
+  logoutButton.click();
+  // Wait for splash page to load.
+  waitFor.pageToFullyLoad();
 };
 
 // The user needs to log in immediately before this method is called. Note

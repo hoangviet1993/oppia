@@ -10,8 +10,8 @@ addons:
 
 branches:
   only:
-  - master
-  - develop
+  - travis_build
+  - /^viet_branch_.*$/
 
 env:
   matrix:
@@ -40,10 +40,6 @@ matrix:
 notifications:
   email:
     recipients:
-    - sean@seanlip.org
-    - henning.benmax@gmail.com
-    - tzjiang1@gmail.com
-    - apurvabajaj007@gmail.com
     on_success: change
     on_failure: change
   irc:
@@ -55,7 +51,6 @@ notifications:
     urls:
     # This URL can be obtained by going to the Gitter chat room
     # and clicking Settings > Integrations.
-    - https://webhooks.gitter.im/e/f8f782497ec1ffcea2e7
     on_success: always
     on_failure: always
 
@@ -108,7 +103,6 @@ cache:
     - ../oppia_tools/
     - third_party/
     - $HOME/.cache/pip
-
 
 before_cache:
   # Delete python bytecode to prevent cache rebuild.
