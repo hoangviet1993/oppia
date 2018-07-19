@@ -134,6 +134,7 @@ describe('Basic user journeys', function() {
       expect(preferencesPage.isEditorRoleEmailsCheckboxSelected()).toBe(false);
       browser.refresh();
       expect(preferencesPage.isEditorRoleEmailsCheckboxSelected()).toBe(false);
+      users.logout();
     });
 
     it('should change feedback message email checkbox value', function() {
@@ -145,6 +146,7 @@ describe('Basic user journeys', function() {
       expect(preferencesPage.isFeedbackEmailsCheckboxSelected()).toBe(false);
       browser.refresh();
       expect(preferencesPage.isFeedbackEmailsCheckboxSelected()).toBe(false);
+      users.logout();
     });
 
     afterEach(function() {
