@@ -44,7 +44,13 @@ var login = function(email, isSuperAdmin) {
   driver.findElement(protractor.By.name('email')).clear();
   driver.findElement(protractor.By.name('email')).sendKeys(email);
   if (isSuperAdmin) {
-    driver.findElement(protractor.By.name('admin')).click();
+    driver.findElement(protractor.By.name('admin')).isSelected().then(
+      function(isSelected) {
+        // Click checkbox only when it is empty.
+        if (!isSelected) {
+          driver.findElement(protractor.By.name('admin')).click();
+        }
+      });
   }
   driver.findElement(protractor.By.id('submit-login')).click();
 };
