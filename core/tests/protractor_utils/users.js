@@ -25,7 +25,6 @@ var AdminPage = require('../protractor_utils/AdminPage.js');
 var adminPage = new AdminPage.AdminPage();
 
 var driver = browser.driver;
-var loginButton = element(by.css('[ng-if="!username"]'));
 var loginUrl = general.SERVER_URL_PREFIX + general.LOGIN_URL_SUFFIX;
 
 var loginPageLoaded = function() {
@@ -43,12 +42,14 @@ var login = function(email, isSuperAdmin) {
   browser.wait(loginPageLoaded, 10000, 'Login page takes too long to be ready');
   driver.findElement(protractor.By.name('email')).clear();
   driver.findElement(protractor.By.name('email')).sendKeys(email);
+  var adminCheckbox = driver.findElement(protractor.By.name('admin'));
   if (isSuperAdmin) {
-    driver.findElement(protractor.By.name('admin')).isSelected().then(
+    adminCheckbox.isSelected().then(
       function(isSelected) {
-        // Click checkbox only when it is empty.
-        if (!isSelected) {
-          driver.findElement(protractor.By.name('admin')).click();
+        // Click checkbox only when it is empty and user needs admin rights.
+        // Otherwise, un-check box if box is checked to remove admin rights.
+        if (!isSelected && isSuperAdmin || isSelected && !isSuperAdmin) {
+          adminCheckbox.click();
         }
       });
   }
