@@ -60,8 +60,6 @@ var logout = function() {
   logoutButton.click();
   // Wait for splash page to load.
   waitFor.pageToFullyLoad();
-  waitFor.elementToBeClickable(
-    loginButton, 'Login button is expected to be clickable after logging out ');
 };
 
 // The user needs to log in immediately before this method is called. Note
