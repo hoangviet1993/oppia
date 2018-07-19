@@ -24,6 +24,7 @@ var waitFor = require('./waitFor.js');
 var AdminPage = require('../protractor_utils/AdminPage.js');
 var adminPage = new AdminPage.AdminPage();
 
+var loginButton = element(by.css('[ng-if="!username"]'));
 var driver = browser.driver;
 
 var loginPageLoaded = function() {
@@ -38,8 +39,6 @@ var login = function(email, isSuperAdmin) {
   // User need to be logged out before logging in a new account.
   browser.get(general.SERVER_URL_PREFIX);
   waitFor.pageToFullyLoad();
-  var loginButton = element.all(
-    by.css('[ng-click="onLoginButtonClicked()"]')).first();
   waitFor.elementToBeClickable(loginButton, 'Login button is not clickable');
   loginButton.click();
 
@@ -65,6 +64,8 @@ var logout = function() {
   logoutButton.click();
   // Wait for splash page to load.
   waitFor.pageToFullyLoad();
+  waitFor.elementToBeClickable(
+    loginButton, 'Login button is expected to be clickable after logging out ');
 };
 
 // The user needs to log in immediately before this method is called. Note
