@@ -43,16 +43,14 @@ var login = function(email, isSuperAdmin) {
   driver.findElement(protractor.By.name('email')).clear();
   driver.findElement(protractor.By.name('email')).sendKeys(email);
   var adminCheckbox = driver.findElement(protractor.By.name('admin'));
-  if (isSuperAdmin) {
-    adminCheckbox.isSelected().then(
-      function(isSelected) {
-        // Click checkbox only when it is empty and user needs admin rights.
-        // Otherwise, un-check box if box is checked to remove admin rights.
-        if (!isSelected && isSuperAdmin || isSelected && !isSuperAdmin) {
-          adminCheckbox.click();
-        }
-      });
-  }
+  adminCheckbox.isSelected().then(
+    function(isSelected) {
+      // Click checkbox only when it is empty and user needs admin rights.
+      // Otherwise, un-check box if box is checked to remove admin rights.
+      if (!isSelected && isSuperAdmin || isSelected && !isSuperAdmin) {
+        adminCheckbox.click();
+      }
+    });
   driver.findElement(protractor.By.id('submit-login')).click();
 };
 
@@ -67,12 +65,6 @@ var logout = function() {
   logoutButton.click();
   // Wait for splash page to load.
   waitFor.pageToFullyLoad();
-};
-
-var nonAngularLogout = function() {
-  driver.get(loginUrl);
-  browser.wait(loginPageLoaded, 10000, 'Login page takes too long to be ready');
-  driver.findElement(protractor.By.id('submit-logout')).click();
 };
 
 // The user needs to log in immediately before this method is called. Note
@@ -123,7 +115,6 @@ var createAndLoginAdminUser = function(email, username) {
 
 exports.login = login;
 exports.logout = logout;
-exports.nonAngularLogout = nonAngularLogout;
 exports.createUser = createUser;
 exports.createAndLoginUser = createAndLoginUser;
 exports.createModerator = createModerator;

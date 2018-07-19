@@ -221,12 +221,9 @@ describe('Basic user journeys', function() {
 describe('Oppia static pages tour', function() {
   var thanksPage = null;
 
-  beforeEach(function() {
+  it('visits the links in About dropdown', function() {
     browser.get(general.SERVER_URL_PREFIX);
     waitFor.pageToFullyLoad();
-  });
-
-  it('visits the links in About dropdown', function() {
     var LINKS_CLASS_NAMES = [
       '.protractor-test-about-link',
       '.protractor-test-get-started-link',
@@ -239,12 +236,11 @@ describe('Oppia static pages tour', function() {
       dropdown.element(by.css(className)).click();
       waitFor.pageToFullyLoad();
     });
-    // Complete logout is needed before accesing the donate link.
-    users.nonAngularLogout();
   });
 
   it('visits the donate link', function() {
-    var donateLink = element(by.css('.protractor-test-donate-link'));
+    var donateLink = element.all(
+      by.css('.protractor-test-donate-link')).first();
     waitFor.elementToBeClickable(donateLink, 'Donate link is not clickable');
     donateLink.click();
     waitFor.pageToFullyLoad();
