@@ -239,6 +239,8 @@ describe('Oppia static pages tour', function() {
       dropdown.element(by.css(className)).click();
       waitFor.pageToFullyLoad();
     });
+    // Complete logout is needed before accesing the donate link.
+    users.nonAngularLogout();
   });
 
   it('visits the donate link', function() {

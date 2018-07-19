@@ -69,6 +69,12 @@ var logout = function() {
   waitFor.pageToFullyLoad();
 };
 
+var nonAngularLogout = function() {
+  driver.get(loginUrl);
+  browser.wait(loginPageLoaded, 10000, 'Login page takes too long to be ready');
+  driver.findElement(protractor.By.id('submit-logout')).click();
+};
+
 // The user needs to log in immediately before this method is called. Note
 // that this will fail if the user already has a username.
 var _completeSignup = function(username) {
@@ -117,6 +123,7 @@ var createAndLoginAdminUser = function(email, username) {
 
 exports.login = login;
 exports.logout = logout;
+exports.nonAngularLogout = nonAngularLogout;
 exports.createUser = createUser;
 exports.createAndLoginUser = createAndLoginUser;
 exports.createModerator = createModerator;
