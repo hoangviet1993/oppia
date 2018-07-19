@@ -24,18 +24,35 @@ var waitFor = require('./waitFor.js');
 var AdminPage = require('../protractor_utils/AdminPage.js');
 var adminPage = new AdminPage.AdminPage();
 
+var driver = browser.driver;
+
+var loginPageLoaded = function() {
+  // Waiting for url to change.
+  var loginUrl = 'http://localhost:9001/_ah/login?continue=http%3A//localhost%3A9001/signup%3Freturn_url%3D%252F';
+  return driver.getCurrentUrl().then(function(currentUrl) {
+    return currentUrl === loginUrl;
+  });
+};
+
 var login = function(email, isSuperAdmin) {
+  // User need to be logged out before logging in a new account.
+  browser.get(general.SERVER_URL_PREFIX);
+  waitFor.pageToFullyLoad();
+  var loginButton = element.all(
+    by.css('[ng-click="onLoginButtonClicked()"]')).first();
+  waitFor.elementToBeClickable(loginButton, 'Login button is not clickable');
+  loginButton.click();
+
   // Use of element is not possible because the login page is non-angular.
   // The full url is also necessary.
-  var driver = browser.driver;
-  driver.get(general.SERVER_URL_PREFIX + general.LOGIN_URL_SUFFIX);
-
+  browser.wait(loginPageLoaded, 10000, 'Login page takes too long to be ready');
   driver.findElement(protractor.By.name('email')).clear();
   driver.findElement(protractor.By.name('email')).sendKeys(email);
   if (isSuperAdmin) {
     driver.findElement(protractor.By.name('admin')).click();
   }
   driver.findElement(protractor.By.id('submit-login')).click();
+  waitFor.pageToFullyLoad();
 };
 
 var logout = function() {
@@ -44,7 +61,7 @@ var logout = function() {
   var profileDropdown = element(by.css('.protractor-test-profile-dropdown'));
   profileDropdown.click();
   var logoutButton = element(by.css('[ng-href="/logout?return_url=%2F"]'));
-  waitFor.elementToBeClickable(logoutButton);
+  waitFor.elementToBeClickable(logoutButton, 'Logout button is not clickable');
   logoutButton.click();
   // Wait for splash page to load.
   waitFor.pageToFullyLoad();
