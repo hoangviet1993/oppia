@@ -242,7 +242,9 @@ describe('Oppia static pages tour', function() {
   });
 
   it('visits the donate link', function() {
-    element(by.css('.protractor-test-donate-link')).click();
+    var donateLink = element(by.css('.protractor-test-donate-link'));
+    waitFor.elementToBeClickable(donateLink, 'Donate link is not clickable');
+    donateLink.click();
     waitFor.pageToFullyLoad();
   });
 
@@ -252,12 +254,18 @@ describe('Oppia static pages tour', function() {
   });
 
   it('visits the terms page', function() {
-    element(by.css('.protractor-test-terms-link')).click();
+    var termsLink = element(by.css('.protractor-test-terms-link'));
+    waitFor.elementToBeClickable(termsLink, 'Terms link is not clickable');
+    termsLink.click();
     waitFor.pageToFullyLoad();
   });
 
   it('visits the privacy page', function() {
-    element(by.css('.protractor-test-privacy-policy-link')).click();
+    var privacyPolicyLink = element(
+      by.css('.protractor-test-privacy-policy-link'));
+    waitFor.elementToBeClickable(
+      privacyPolicyLink, ' Privacy policy link is not clickable');
+    privacyPolicyLink.click();
     waitFor.pageToFullyLoad();
   });
 
