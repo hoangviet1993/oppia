@@ -20,12 +20,19 @@ oppia.directive('topicsList', [
     return {
       restrict: 'E',
       scope: {
-        getTopicSummaries: '&topicSummaries'
+        getTopicSummaries: '&topicSummaries',
+        canDeleteTopic: '&userCanDeleteTopic',
+        isInModal: '&inModal',
+        selectedTopicIds: '='
       },
       templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
         '/pages/topics_and_skills_dashboard/topics_list_directive.html'),
-      controller: ['$scope',
-        function($scope) {
+      controller: [
+        '$scope', '$uibModal', '$rootScope', 'EditableTopicBackendApiService',
+        'AlertsService', 'EVENT_TOPICS_AND_SKILLS_DASHBOARD_REINITIALIZED',
+        function(
+            $scope, $uibModal, $rootScope, EditableTopicBackendApiService,
+            AlertsService, EVENT_TOPICS_AND_SKILLS_DASHBOARD_REINITIALIZED) {
           // As additional stories are not supported initially, it's not
           // being shown, for now.
           $scope.TOPIC_HEADINGS = [
@@ -33,7 +40,51 @@ oppia.directive('topicsList', [
             'canonical_story_count', 'topic_status'
           ];
           $scope.getTopicEditorUrl = function(topicId) {
+            if ($scope.isInModal()) {
+              return;
+            }
             return '/topic_editor/' + topicId;
+          };
+
+          $scope.selectTopic = function(topicId) {
+            if ($scope.selectedTopicIds) {
+              if ($scope.selectedTopicIds.indexOf(topicId) === -1) {
+                $scope.selectedTopicIds.push(topicId);
+              }
+            }
+          };
+
+          $scope.deleteTopic = function(topicId) {
+            var modalInstance = $uibModal.open({
+              templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
+                '/pages/topics_and_skills_dashboard/' +
+                'delete_topic_modal_directive.html'),
+              backdrop: true,
+              controller: [
+                '$scope', '$uibModalInstance',
+                function($scope, $uibModalInstance) {
+                  $scope.confirmDeletion = function() {
+                    $uibModalInstance.close();
+                  };
+                  $scope.cancel = function() {
+                    $uibModalInstance.dismiss('cancel');
+                  };
+                }
+              ]
+            });
+
+            modalInstance.result.then(function() {
+              EditableTopicBackendApiService.deleteTopic(topicId).then(
+                function(status) {
+                  $rootScope.$broadcast(
+                    EVENT_TOPICS_AND_SKILLS_DASHBOARD_REINITIALIZED);
+                },
+                function(error) {
+                  AlertsService.addWarning(
+                    error || 'There was an error when deleting the topic.');
+                }
+              );
+            });
           };
         }
       ]

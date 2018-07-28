@@ -34,12 +34,12 @@ oppia.directive('audioTranslationsEditor', [
         '$scope', '$rootScope', '$uibModal', '$sce', 'stateContentService',
         'stateContentIdsToAudioTranslationsService',
         'EditabilityService', 'LanguageUtilService', 'AlertsService',
-        'ExplorationContextService', 'AssetsBackendApiService',
+        'ContextService', 'AssetsBackendApiService',
         function(
             $scope, $rootScope, $uibModal, $sce, stateContentService,
-            stateContentIdsToAudioTranslationsService, EditabilityService,
-            LanguageUtilService, AlertsService, ExplorationContextService,
-            AssetsBackendApiService) {
+            stateContentIdsToAudioTranslationsService,
+            EditabilityService, LanguageUtilService, AlertsService,
+            ContextService, AssetsBackendApiService) {
           $scope.isTranslatable = EditabilityService.isTranslatable;
 
           $scope.stateContentIdsToAudioTranslationsService =
@@ -59,7 +59,7 @@ oppia.directive('audioTranslationsEditor', [
                 .hasAudioTranslations($scope.contentId);
           }
 
-          var explorationId = ExplorationContextService.getExplorationId();
+          var explorationId = ContextService.getExplorationId();
 
           $scope.getAudioLanguageDescription = (
             LanguageUtilService.getAudioLanguageDescription);
@@ -77,11 +77,11 @@ oppia.directive('audioTranslationsEditor', [
 
           $scope.getNeedsUpdateTooltipMessage = function(needsUpdate) {
             if (needsUpdate) {
-              return ($scope.isEditable() ? 'Audio might not match text.' +
+              return ($scope.isTranslatable() ? 'Audio might not match text.' +
                 ' Reupload the file, or click to unflag.' :
                 'Audio might not match text.');
             } else {
-              return ($scope.isEditable() ? 'Click to mark this audio ' +
+              return ($scope.isTranslatable() ? 'Click to mark this audio ' +
                 'translation as not matching text.' :
                 'Audio translation matches text.');
             }
@@ -98,7 +98,7 @@ oppia.directive('audioTranslationsEditor', [
             var allowedAudioLanguageCodes = (
               LanguageUtilService.getComplementAudioLanguageCodes(
                 stateContentIdsToAudioTranslationsService.displayed
-                  .getAudioLanguageCodes ($scope.contentId)));
+                  .getAudioLanguageCodes($scope.contentId)));
 
             if (allowedAudioLanguageCodes.length === 0) {
               AlertsService.addWarning(
@@ -124,12 +124,12 @@ oppia.directive('audioTranslationsEditor', [
               controller: [
                 '$scope', '$window', '$uibModalInstance', 'LanguageUtilService',
                 'allowedAudioLanguageCodes', 'AlertsService',
-                'ExplorationContextService', 'IdGenerationService',
+                'ContextService', 'IdGenerationService',
                 'componentName',
                 function(
                     $scope, $window, $uibModalInstance, LanguageUtilService,
                     allowedAudioLanguageCodes, AlertsService,
-                    ExplorationContextService, IdGenerationService,
+                    ContextService, IdGenerationService,
                     componentName) {
                   var ERROR_MESSAGE_BAD_FILE_UPLOAD = (
                     'There was an error uploading the audio file.');
@@ -154,7 +154,7 @@ oppia.directive('audioTranslationsEditor', [
                   $scope.saveInProgress = false;
                   $scope.languageCode =
                     allowedAudioLanguageCodes.indexOf(prevLanguageCode) !== -1 ?
-                      prevLanguageCode : allowedAudioLanguageCodes[0];
+                    prevLanguageCode : allowedAudioLanguageCodes[0];
                   var uploadedFile = null;
 
                   $scope.isAudioTranslationValid = function() {
@@ -190,7 +190,7 @@ oppia.directive('audioTranslationsEditor', [
                       $window.localStorage.setItem(
                         'last_uploaded_audio_lang', $scope.languageCode);
                       var explorationId = (
-                        ExplorationContextService.getExplorationId());
+                        ContextService.getExplorationId());
                       AssetsBackendApiService.saveAudio(
                         explorationId, generatedFilename, uploadedFile
                       ).then(function() {

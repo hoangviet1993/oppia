@@ -300,7 +300,125 @@ class ExplorationHandler(base.BaseHandler):
 
 
 class StorePlaythroughHandler(base.BaseHandler):
-    """Handles a useful playthrough coming in from the frontend to store it."""
+    """Handles a useful playthrough coming in from the frontend to store it. If
+    the playthrough already exists, it is updated in the datastore.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """Method that initializes member variables for the handler.
+
+        Attributes:
+            current_exp_issues: ExplorationIssues. The exploration issues domain
+                object.
+            current_issue_schema_version: int. The issue schema version.
+            current_playthrough_id: str|None. The Playthrough ID or None.
+        """
+        super(StorePlaythroughHandler, self).__init__(*args, **kwargs)
+        self.current_exp_issues = None
+        self.current_issue_schema_version = None
+        self.current_playthrough_id = None
+
+    def _find_matching_issue_in_exp_issues(self, playthrough):
+        """Finds an issue with the equivalent issue_type and associated states
+        as the given playthrough in the unresolved issues list of the
+        exploration issues model.
+
+        Args:
+            playthrough: Playthrough. The playthrough domain object.
+
+        Returns:
+            int|None. The index at which the issue was found, None otherwise.
+        """
+        for index, issue in enumerate(
+                self.current_exp_issues.unresolved_issues):
+            if issue.issue_type == playthrough.issue_type:
+                issue_customization_args = issue.issue_customization_args
+                # In case issue_keyname is 'state_names', the ordering of the
+                # list is important i.e. [a,b,c] is different from [b,c,a].
+                issue_keyname = stats_models.ISSUE_TYPE_KEYNAME_MAPPING[
+                    issue.issue_type]
+                if (issue_customization_args[issue_keyname] ==
+                        playthrough.issue_customization_args[issue_keyname]):
+                    return index
+        return None
+
+    def _move_playthrough_to_correct_issue(self, playthrough, orig_playthrough):
+        """Moves the updated playthrough to its correct issue in the unresolved
+        issues list.
+
+        Args:
+            playthrough: Playthrough. The updated playthrough domain object.
+            orig_playthrough: Playthrough. The original playthrough domain
+                object which is in the now-incorrect issue list.
+        """
+        did_move_playthrough_to_new_issue = False
+        issue_index = self._find_matching_issue_in_exp_issues(playthrough)
+        # Check whether the playthrough can be added to its new issue,
+        # if not, it stays in its old issue.
+        if issue_index is not None:
+            issue = self.current_exp_issues.unresolved_issues[issue_index]
+            if len(issue.playthrough_ids) < feconf.MAX_PLAYTHROUGHS_FOR_ISSUE:
+                issue.playthrough_ids.append(self.current_playthrough_id)
+                did_move_playthrough_to_new_issue = True
+        else:
+            issue = stats_domain.ExplorationIssue(
+                playthrough.issue_type,
+                playthrough.issue_customization_args,
+                [self.current_playthrough_id],
+                self.current_issue_schema_version, is_valid=True)
+            self.current_exp_issues.unresolved_issues.append(issue)
+            did_move_playthrough_to_new_issue = True
+
+        # Now, remove the playthrough from its old issue.
+        if did_move_playthrough_to_new_issue:
+            orig_issue_index = self._find_matching_issue_in_exp_issues(
+                orig_playthrough)
+            if orig_issue_index is not None:
+                self.current_exp_issues.unresolved_issues[
+                    orig_issue_index].playthrough_ids.remove(
+                        self.current_playthrough_id)
+
+    def _assign_playthrough_to_issue(self, playthrough):
+        """Assigns newly created playthrough to its correct issue or makes a new
+        issue.
+
+        Args:
+            playthrough: Playthrough. The playthrough domain object.
+
+        Raises:
+            Exception. Maximum playthroughs per issue reached.
+
+        Returns:
+            playthrough_id: int. The playthrough ID.
+        """
+        # Find whether an issue already exists for the new playthrough.
+        issue_index = self._find_matching_issue_in_exp_issues(playthrough)
+        if issue_index is not None:
+            issue = self.current_exp_issues.unresolved_issues[issue_index]
+            if len(issue.playthrough_ids) < feconf.MAX_PLAYTHROUGHS_FOR_ISSUE:
+                actions = [action.to_dict() for action in playthrough.actions]
+                playthrough_id = stats_models.PlaythroughModel.create(
+                    playthrough.exp_id, playthrough.exp_version,
+                    playthrough.issue_type,
+                    playthrough.issue_customization_args, actions)
+                issue.playthrough_ids.append(playthrough_id)
+            else:
+                raise Exception('Maximum playthroughs per issue reached.')
+        else:
+            actions = [action.to_dict() for action in playthrough.actions]
+            playthrough_id = stats_models.PlaythroughModel.create(
+                playthrough.exp_id, playthrough.exp_version,
+                playthrough.issue_type,
+                playthrough.issue_customization_args, actions)
+            issue = stats_domain.ExplorationIssue(
+                playthrough.issue_type,
+                playthrough.issue_customization_args,
+                [playthrough_id], self.current_issue_schema_version,
+                is_valid=True)
+
+            self.current_exp_issues.unresolved_issues.append(issue)
+
+        return playthrough_id
 
     @acl_decorators.can_play_exploration
     def post(self, exploration_id):
@@ -310,13 +428,6 @@ class StorePlaythroughHandler(base.BaseHandler):
         Args:
             exploration_id: str. The ID of the exploration.
         """
-        exp_issue_dict = self.payload.get('exp_issue_dict')
-        try:
-            unused_exp_issue = stats_domain.ExplorationIssue.from_backend_dict(
-                exp_issue_dict)
-        except utils.ValidationError as e:
-            raise self.InvalidInputException(e)
-
         playthrough_data = self.payload.get('playthrough_data')
         try:
             unused_playthrough = stats_domain.Playthrough.from_backend_dict(
@@ -324,54 +435,53 @@ class StorePlaythroughHandler(base.BaseHandler):
         except utils.ValidationError as e:
             raise self.InvalidInputException(e)
 
+        try:
+            self.current_issue_schema_version = self.payload[
+                'issue_schema_version']
+        except KeyError as e:
+            raise self.InvalidInputException(e)
+
+        try:
+            self.current_playthrough_id = self.payload['playthrough_id']
+        except KeyError as e:
+            raise self.InvalidInputException(e)
+
         exp_version = playthrough_data['exp_version']
 
         exp_issues_model = stats_models.ExplorationIssuesModel.get_model(
             exploration_id, exp_version)
-        exp_issues = stats_services.get_exp_issues_from_model(exp_issues_model)
+        self.current_exp_issues = stats_services.get_exp_issues_from_model(
+            exp_issues_model)
 
-        customization_args = exp_issue_dict['issue_customization_args']
+        playthrough = stats_domain.Playthrough.from_dict(playthrough_data)
 
-        issue_found = False
-        for index, issue in enumerate(exp_issues.unresolved_issues):
-            if issue.issue_type == exp_issue_dict['issue_type']:
-                issue_customization_args = issue.issue_customization_args
-                # In case issue_keyname is 'state_names', the ordering of the
-                # list is important i.e. [a,b,c] is different from [b,c,a].
-                issue_keyname = stats_models.ISSUE_TYPE_KEYNAME_MAPPING[
-                    issue.issue_type]
-                if (issue_customization_args[issue_keyname] ==
-                        customization_args[issue_keyname]):
-                    issue_found = True
-                    if (len(issue.playthrough_ids) <
-                            feconf.MAX_PLAYTHROUGHS_FOR_ISSUE):
-                        playthrough_id = stats_models.PlaythroughModel.create(
-                            playthrough_data['exp_id'],
-                            playthrough_data['exp_version'],
-                            playthrough_data['issue_type'],
-                            playthrough_data['issue_customization_args'],
-                            playthrough_data['actions'])
-                        exp_issues.unresolved_issues[
-                            index].playthrough_ids.append(playthrough_id)
-                    break
+        # If playthrough already exists, update it in the datastore.
+        if self.current_playthrough_id is not None:
+            orig_playthrough = stats_services.get_playthrough_by_id(
+                self.current_playthrough_id)
+            if orig_playthrough.issue_type != playthrough.issue_type:
+                self._move_playthrough_to_correct_issue(
+                    playthrough, orig_playthrough)
 
-        if not issue_found:
-            playthrough_id = stats_models.PlaythroughModel.create(
-                playthrough_data['exp_id'],
-                playthrough_data['exp_version'],
-                playthrough_data['issue_type'],
-                playthrough_data['issue_customization_args'],
-                playthrough_data['actions'])
-            issue = stats_domain.ExplorationIssue(
-                exp_issue_dict['issue_type'],
-                exp_issue_dict['issue_customization_args'],
-                [playthrough_id], exp_issue_dict['schema_version'],
-                exp_issue_dict['is_valid'])
+            stats_services.update_playthroughs_multi(
+                [self.current_playthrough_id], [playthrough])
+            stats_services.save_exp_issues_model_transactional(
+                self.current_exp_issues)
+            self.render_json({})
+            return
 
-            exp_issues.unresolved_issues.append(issue)
+        payload_return = {'playthrough_stored': True}
 
-        stats_services.save_exp_issues_model_transactional(exp_issues)
-        self.render_json({})
+        playthrough_id = None
+        try:
+            playthrough_id = self._assign_playthrough_to_issue(playthrough)
+        except Exception:
+            payload_return['playthrough_stored'] = False
+
+        stats_services.save_exp_issues_model_transactional(
+            self.current_exp_issues)
+        payload_return['playthrough_id'] = playthrough_id
+        self.render_json(payload_return)
 
 
 class StatsEventsHandler(base.BaseHandler):
@@ -415,6 +525,9 @@ class StatsEventsHandler(base.BaseHandler):
     def post(self, exploration_id):
         aggregated_stats = self.payload.get('aggregated_stats')
         exp_version = self.payload.get('exp_version')
+        if exp_version is None:
+            raise self.InvalidInputException(
+                'NONE EXP VERSION: Stats aggregation')
         try:
             self._require_aggregated_stats_are_valid(aggregated_stats)
         except self.InvalidInputException as e:
@@ -443,6 +556,9 @@ class AnswerSubmittedEventHandler(base.BaseHandler):
         params = self.payload.get('params', {})
         # The version of the exploration.
         version = self.payload.get('version')
+        if version is None:
+            raise self.InvalidInputException(
+                'NONE EXP VERSION: Answer Submit')
         session_id = self.payload.get('session_id')
         client_time_spent_in_secs = self.payload.get(
             'client_time_spent_in_secs')
@@ -486,6 +602,9 @@ class StateHitEventHandler(base.BaseHandler):
         """
         new_state_name = self.payload.get('new_state_name')
         exploration_version = self.payload.get('exploration_version')
+        if exploration_version is None:
+            raise self.InvalidInputException(
+                'NONE EXP VERSION: State hit')
         session_id = self.payload.get('session_id')
         # TODO(sll): why do we not record the value of this anywhere?
         client_time_spent_in_secs = self.payload.get(  # pylint: disable=unused-variable
@@ -512,6 +631,9 @@ class StateCompleteEventHandler(base.BaseHandler):
     @acl_decorators.can_play_exploration
     def post(self, exploration_id):
         """Handles POST requests."""
+        if self.payload.get('exp_version') is None:
+            raise self.InvalidInputException(
+                'NONE EXP VERSION: State Complete')
         event_services.StateCompleteEventHandler.record(
             exploration_id, self.payload.get('exp_version'),
             self.payload.get('state_name'), self.payload.get('session_id'),
@@ -553,6 +675,7 @@ class ReaderFeedbackHandler(base.BaseHandler):
         include_author = self.payload.get('include_author')
 
         feedback_services.create_thread(
+            feconf.ENTITY_TYPE_EXPLORATION,
             exploration_id,
             state_name,
             self.user_id if include_author else None,
@@ -573,6 +696,9 @@ class ExplorationStartEventHandler(base.BaseHandler):
         Args:
             exploration_id: str. The ID of the exploration.
         """
+        if self.payload.get('version') is None:
+            raise self.InvalidInputException(
+                'NONE EXP VERSION: Exploration start')
         event_services.StartExplorationEventHandler.record(
             exploration_id, self.payload.get('version'),
             self.payload.get('state_name'),
@@ -592,6 +718,9 @@ class ExplorationActualStartEventHandler(base.BaseHandler):
     @acl_decorators.can_play_exploration
     def post(self, exploration_id):
         """Handles POST requests."""
+        if self.payload.get('exploration_version') is None:
+            raise self.InvalidInputException(
+                'NONE EXP VERSION: Actual Start')
         event_services.ExplorationActualStartEventHandler.record(
             exploration_id, self.payload.get('exploration_version'),
             self.payload.get('state_name'), self.payload.get('session_id'))
@@ -606,6 +735,9 @@ class SolutionHitEventHandler(base.BaseHandler):
     @acl_decorators.can_play_exploration
     def post(self, exploration_id):
         """Handles POST requests."""
+        if self.payload.get('exploration_version') is None:
+            raise self.InvalidInputException(
+                'NONE EXP VERSION: Solution hit')
         event_services.SolutionHitEventHandler.record(
             exploration_id, self.payload.get('exploration_version'),
             self.payload.get('state_name'), self.payload.get('session_id'),
@@ -634,6 +766,9 @@ class ExplorationCompleteEventHandler(base.BaseHandler):
         collection_id = self.payload.get('collection_id')
         user_id = self.user_id
 
+        if self.payload.get('version') is None:
+            raise self.InvalidInputException(
+                'NONE EXP VERSION: Exploration complete')
         event_services.CompleteExplorationEventHandler.record(
             exploration_id,
             self.payload.get('version'),
@@ -680,6 +815,9 @@ class ExplorationMaybeLeaveHandler(base.BaseHandler):
             exploration_id: str. The ID of the exploration.
         """
         version = self.payload.get('version')
+        if version is None:
+            raise self.InvalidInputException(
+                'NONE EXP VERSION: Maybe quit')
         state_name = self.payload.get('state_name')
         user_id = self.user_id
         collection_id = self.payload.get('collection_id')
