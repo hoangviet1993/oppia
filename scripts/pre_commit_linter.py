@@ -92,6 +92,14 @@ BAD_PATTERNS = {
         'message': 'Please make sure all files only have LF endings (no CRLF).',
         'excluded_files': (),
         'excluded_dirs': ()},
+    '<<<<<<<': {
+        'message': 'Please fully resolve existing merge conflicts.',
+        'excluded_files': (),
+        'excluded_dirs': ()},
+    '>>>>>>>': {
+        'message': 'Please fully resolve existing merge conflicts.',
+        'excluded_files': (),
+        'excluded_dirs': ()},
     'glyphicon': {
         'message': 'Please use equivalent material-icons '
                    'instead of glyphicons.',
@@ -221,7 +229,7 @@ EXCLUDED_PATHS = (
     'third_party/*', 'build/*', '.git/*', '*.pyc', 'CHANGELOG',
     'integrations/*', 'integrations_dev/*', '*.svg', '*.gif',
     '*.png', '*.zip', '*.ico', '*.jpg', '*.min.js',
-    'assets/scripts/*', 'core/tests/data/*', '*.mp3')
+    'assets/scripts/*', 'core/tests/data/*', '*.mp3', '*.mp4')
 
 GENERATED_FILE_PATHS = (
     'extensions/interactions/LogicProof/static/js/generatedDefaultData.js',
